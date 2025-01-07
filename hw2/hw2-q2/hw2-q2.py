@@ -50,7 +50,6 @@ class CNN(nn.Module):
         dropout_prob=0.1,
         maxpool=True,
         batch_norm=True,
-        conv_bias=True,
         avg_pool=True,
     ):
         super(CNN, self).__init__()
@@ -84,7 +83,9 @@ class CNN(nn.Module):
             dropout=dropout_prob,
         )
 
-        self.avg_pool2d = nn.AdaptiveAvgPool2d((1, 1))
+        self.avg_pool2d = (
+            nn.AdaptiveAvgPool2d((1, 1)) if self.avg_pool else nn.Identity()
+        )
 
         # Block 1: input (3, 48, 48), output (32, 24, 24)
         # Block 2: input (32, 24, 24), output (64, 12, 12)
