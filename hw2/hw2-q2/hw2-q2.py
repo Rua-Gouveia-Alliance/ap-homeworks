@@ -176,8 +176,12 @@ def plot(epochs, plottable, ylabel="", name=""):
     plt.savefig("%s.pdf" % (name), bbox_inches="tight")
 
 
-def get_number_trainable_params(model):
-    raise NotImplementedError
+def get_number_trainable_params(model: nn.Module):
+    total = 0
+    for p in model.parameters():
+        if p.requires_grad:
+            total += p.numel()
+    return total
 
 
 def plot_file_name_sufix(opt, exlude):
