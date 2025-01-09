@@ -20,7 +20,7 @@ class BahdanauAttention(nn.Module):
 
     def __init__(self, hidden_size):
         super(BahdanauAttention, self).__init__()
-        
+
         raise NotImplementedError("Add your implementation.")
 
     def forward(self, query, encoder_outputs, src_lengths):
@@ -41,10 +41,12 @@ class BahdanauAttention(nn.Module):
         """
         batch_size = lengths.numel()
         max_len = lengths.max()
-        return (torch.arange(max_len, device=lengths.device)
-                .unsqueeze(0)
-                .repeat(batch_size, 1)
-                .lt(lengths.unsqueeze(1)))
+        return (
+            torch.arange(max_len, device=lengths.device)
+            .unsqueeze(0)
+            .repeat(batch_size, 1)
+            .lt(lengths.unsqueeze(1))
+        )
 
 
 class Encoder(nn.Module):
@@ -79,23 +81,24 @@ class Encoder(nn.Module):
     ):
         # src: (batch_size, max_src_len)
         # lengths: (batch_size)
-        #############################################
-        # TODO: Implement the forward pass of the encoder
-        # Hints:
-        # - Use torch.nn.utils.rnn.pack_padded_sequence to pack the padded sequences
-        #   (before passing them to the LSTM)
-        # - Use torch.nn.utils.rnn.pad_packed_sequence to unpack the packed sequences
-        #   (after passing them to the LSTM)
-        #############################################
-        
 
+        embedded = self.embedding(src)
+        if self.dropout:
+            embedded = self.dropout(embedded)
+
+        packed_embedded = pack(
+            embedded, lengths.cpu(), batch_first=True, enforce_sorted=False
+        )
+        packed_outputs, final_hidden = self.lstm(packed_embedded)
+        outs, out_lengths = unpack(packed_outputs, batch_first=True)
+
+        return outs, final_hidden
         #############################################
         # END OF YOUR CODE
         #############################################
         # enc_output: (batch_size, max_src_len, hidden_size)
         # final_hidden: tuple with 2 tensors
         # each tensor is (num_layers * num_directions, batch_size, hidden_size)
-        raise NotImplementedError("Add your implementation.")
 
 
 class Decoder(nn.Module):
@@ -158,7 +161,19 @@ class Decoder(nn.Module):
         #         src_lengths,
         #     )
         #############################################
-        
+        embedded = self.embedding(tgt)
+        if self.dropout:
+            embedded = self.dropout(embedded)
+
+        outs = []
+        batch_size, max_tgt_len = tgt.size()
+        for tgt_i in range(max_tgt_len):
+            token_i = embedded[:, tgt_i, :]
+            out, dec_state = self.lstm(token_i.unsqueeze(1), dec_state)
+            outs.append(out)
+
+        outs = torch.stack(outs, dim=1)
+        return outs, dec_state
 
         #############################################
         # END OF YOUR CODE
@@ -166,7 +181,6 @@ class Decoder(nn.Module):
         # outputs: (batch_size, max_tgt_len, hidden_size)
         # dec_state: tuple with 2 tensors
         # each tensor is (num_layers, batch_size, hidden_size)
-        raise NotImplementedError("Add your implementation.")
 
 
 class Seq2Seq(nn.Module):
@@ -197,8 +211,6 @@ class Seq2Seq(nn.Module):
         if dec_hidden is None:
             dec_hidden = final_enc_state
 
-        output, dec_hidden = self.decoder(
-            tgt, dec_hidden, encoder_outputs, src_lengths
-        )
+        output, dec_hidden = self.decoder(tgt, dec_hidden, encoder_outputs, src_lengths)
 
         return self.generator(output), dec_hidden
