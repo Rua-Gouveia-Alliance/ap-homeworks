@@ -174,7 +174,6 @@ class Decoder(nn.Module):
 
         outs = torch.stack(outs, dim=1)
         return outs, dec_state
-
         #############################################
         # END OF YOUR CODE
         #############################################

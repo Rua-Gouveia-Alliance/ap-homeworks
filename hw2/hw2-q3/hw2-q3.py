@@ -39,9 +39,7 @@ def distance(str1, str2):
                 dg = 0
             else:
                 dg = 1
-            m[x, y] = min(
-                m[x - 1, y] + 1, m[x, y - 1] + 1, m[x - 1, y - 1] + dg
-            )
+            m[x, y] = min(m[x - 1, y] + 1, m[x, y - 1] + 1, m[x - 1, y - 1] + dg)
     return m[len(str2), len(str1)]
 
 
@@ -68,7 +66,7 @@ def train(data, model, lr, n_epochs, checkpoint_name, max_len=50):
             src_lengths = src_lengths.to(device)
 
             optimizer.zero_grad()
-            outputs, _ = model(src, src_lengths, tgt)
+            outputs, _ = model(src, src_lengths, tgt[:, :-1])
             loss = criterion(
                 outputs.reshape(-1, outputs.shape[-1]), tgt[:, 1:].reshape(-1)
             )
@@ -198,7 +196,7 @@ def compute_wer_at_k(model, gold_data_iter, max_len=50, p=None, k=1, ex_to_print
     examples = [(t, p) for t, p in zip(true_targets, pred_sets) if len(p) > 1]
     if ex_to_print > 0:
         print(f"Printing first {ex_to_print} examples with multiple predictions:")
-    for ex in examples[: ex_to_print]:
+    for ex in examples[:ex_to_print]:
         print(ex)
     return wer_at_k
 
@@ -243,12 +241,12 @@ def main(args):
     valid_dataset = Seq2SeqDataset(
         join(args.data_dir, "valid.tsv"),
         src_vocab=train_dataset.src_vocab,
-        tgt_vocab=train_dataset.tgt_vocab
+        tgt_vocab=train_dataset.tgt_vocab,
     )
     test_dataset = Seq2SeqDataset(
         join(args.data_dir, "test.tsv"),
         src_vocab=train_dataset.src_vocab,
-        tgt_vocab=train_dataset.tgt_vocab
+        tgt_vocab=train_dataset.tgt_vocab,
     )
 
     collate_fn = partial(collate_samples, padding_idx=PAD_IDX)
@@ -299,11 +297,7 @@ def main(args):
     if args.mode == "train":
         print("Training...")
         min_val_err, val_errs = train(
-            data_iters,
-            model,
-            args.lr,
-            args.n_epochs,
-            checkpoint_name
+            data_iters, model, args.lr, args.n_epochs, checkpoint_name
         )
 
         print("Best validation error rate: %.4f" % (min_val_err))
