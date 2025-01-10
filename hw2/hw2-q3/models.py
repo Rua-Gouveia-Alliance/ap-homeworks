@@ -21,7 +21,9 @@ class BahdanauAttention(nn.Module):
     def __init__(self, hidden_size):
         super(BahdanauAttention, self).__init__()
 
-        raise NotImplementedError("Add your implementation.")
+        self.W_h = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.W_s = nn.Linear(hidden_size, hidden_size, bias=False)
+        self.v = nn.Linear(hidden_size, 1, bias=False)
 
     def forward(self, query, encoder_outputs, src_lengths):
         """
@@ -31,8 +33,17 @@ class BahdanauAttention(nn.Module):
         Returns:
             attn_out:   (batch_size, max_tgt_len, hidden_size) - attended vector
         """
+        mask = self.sequence_mask(src_lengths)
+        scores = (
+            self.v(torch.tanh(self.W_h(encoder_outputs) + self.W_s(query)))
+            .squeeze(-1)
+            .masked_fill(~mask, float("-inf"))
+        )
 
-        raise NotImplementedError("Add your implementation.")
+        attn_weights = torch.softmax(scores, dim=-1)
+
+        context = torch.bmm(attn_weights.unsqueeze(1), encoder_outputs)
+        return context
 
     def sequence_mask(self, lengths):
         """
@@ -146,21 +157,6 @@ class Decoder(nn.Module):
         if dec_state[0].shape[0] == 2:
             dec_state = reshape_state(dec_state)
 
-        #############################################
-        # TODO: Implement the forward pass of the decoder
-        # Hints:
-        # - the input to the decoder is the previous target token,
-        #   and the output is the next target token
-        # - New token representations should be generated one at a time, given
-        #   the previous token representation and the previous decoder state
-        # - Add this somewhere in the decoder loop when you implement the attention mechanism in 3.2:
-        # if self.attn is not None:
-        #     output = self.attn(
-        #         output,
-        #         encoder_outputs,
-        #         src_lengths,
-        #     )
-        #############################################
         embedded = self.embedding(tgt)
         if self.dropout:
             embedded = self.dropout(embedded)
@@ -170,6 +166,14 @@ class Decoder(nn.Module):
         for tgt_i in range(max_tgt_len):
             token_i = embedded[:, tgt_i, :]
             out, dec_state = self.lstm(token_i.unsqueeze(1), dec_state)
+
+            if self.attn is not None:
+                out = self.attn(
+                    out,
+                    encoder_outputs,
+                    src_lengths,
+                )
+
             outs.append(out)
 
         outs = torch.stack(outs, dim=1)
