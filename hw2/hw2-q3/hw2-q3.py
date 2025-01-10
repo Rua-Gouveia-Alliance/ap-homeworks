@@ -221,7 +221,7 @@ def nucleus_sampling(logits, p=0.8):
     Returns:
         next_token: index of the next predicted token. Shape: (1,)
     """
-    # TODO: Top-p (nucleus) sampling  (https://arxiv.org/pdf/1904.09751 - Section 3.1)
+    # Top-p (nucleus) sampling  (https://arxiv.org/pdf/1904.09751 - Section 3.1)
     # You are asked to implement the following steps:
     # 1. Transform the given logits into probabilities.
     # 2. Select the smallest set of tokens whose cumulative probability mass exceeds p.
@@ -229,7 +229,21 @@ def nucleus_sampling(logits, p=0.8):
     # 3. Rescale the distribution and sample from the resulting set of tokens.
     # Implementation of the steps as described above:
 
-    raise NotImplementedError("Add your implementation.")
+    # 1.
+    probabilities = torch.softmax(logits, dim=-1)
+
+    # 2.
+    sorted_probs, sorted_idx = torch.sort(probabilities, descending=True)
+    cumulative_probs = torch.cumsum(sorted_probs, dim=-1)
+    selected_tokens = cumulative_probs <= p  # we are selecting the smallest set
+    selected_tokens[0] = True  # ensure at least one is always chosen
+
+    # 3.
+    rescaled_probs = sorted_probs[selected_tokens] / sorted_probs[selected_tokens].sum()
+    next_token = torch.multinomial(rescaled_probs, 1)
+
+    top_idx = sorted_idx[selected_tokens]
+    return top_idx[next_token]
 
 
 def main(args):
